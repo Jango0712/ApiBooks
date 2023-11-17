@@ -1,186 +1,127 @@
-const { pool } = require("../database");
+const User = require("../model/user.model");
+const { QueryTypes } = require("sequelize");
+const sequelize = require("../config/database");
 
-const registerUser = async (req, res) => {
+const getUsers = async (req, res) => {
   try {
-    console.log(req.body);
-    let sql =
-      "INSERT INTO user (name , last_name , email, photo, password)" +
-      "VALUES (?,?,?,?,?)";
-    let params = [
-      req.body.name,
-      req.body.last_name,
-      req.body.email,
-      req.body.photo,
-      req.body.password,
-    ];
-    console.log(sql, params);
-    let [result] = await pool.query(sql, params);
-    console.log(result);
-
-    if (result.insertId) res.send(String(result.insertId));
-    else res.send("-1");
+    const users = await User.findAll();
+    res.status(200).json({
+      ok: true,
+      status: 200,
+      message: users,
+    });
   } catch (error) {
-    console.log(error);
+    return res.status(500).json({ message: error.message });
   }
 };
 
-const login = async (req, res) => {
+const getUser = async (req, res) => {
+  const id = req.params.user_id;
   try {
-    console.log(req.body);
-    let sql = `SELECT * FROM user WHERE email =? AND password = ?`;
-    let params = [req.body.email, req.body.password];
+    const user = await User.findOne({
+      where: { user_id: id },
+    });
+    res.status(200).json({
+      ok: true,
+      status: 200,
+      message: user,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
 
-    let [result] = await pool.query(sql, params);
-    console.log(result);
-    if (result.length == 0) {
-      res.send({ error: true, codigo: 404, mensaje: "usuario no encontrado" });
+const createUser = async (req, res) => {
+  const { name, surname, email, url } = req.body;
+  console.log(req.body);
+  try {
+    const newUser = await User.create({
+      name,
+      surname,
+      email,
+      photo: url,
+    });
+    res.status(201).json({
+      ok: true,
+      status: 201,
+      message: newUser,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const updateUser = async (req, res) => {
+  try {
+    const { user_id } = req.query;
+
+    const user = await User.findOne({
+      where: { user_id },
+    });
+
+    // actualiza sólo los datos que se le pasen en el body
+    // no hace falta pasarlos todos
+    user.set(req.body);
+
+    // Guardando en BBDD
+    await user.save();
+    res.status(200).json({
+      ok: true,
+      status: 200,
+      message: user,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    await User.destroy({ where: { user_id } });
+    res.status(204).json({
+      ok: true,
+      status: 204,
+      message: "Usuario eliminado correctamente",
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const loginUser = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await sequelize.query(
+      "SELECT * FROM `users` WHERE email = :email",
+      {
+        replacements: { email: email },
+        type: QueryTypes.SELECT,
+      },
+      { limit: 1 }
+    );
+
+    if (user) {
+      res.status(200).json({
+        ok: true,
+        status: 200,
+        user: user,
+      });
     } else {
-      res.send({
-        error: false,
-        codigo: 200,
-        mensaje: "usuario encontrado",
-        data: result,
+      res.status(404).json({
+        error: "Usuario no encontrado",
       });
     }
   } catch (error) {
-    console.log(error);
-  }
-};
-
-const getBook = async (req, res) => {
-  try {
-    let sql;
-
-    sql =
-      "SELECT * FROM book WHERE id_book = " +
-      req.query.id +
-      " AND id_user = " +
-      req.query.id_user;
-
-    console.log(sql);
-    let [result] = await pool.query(sql);
-    console.log(result);
-    if (result.length == 0)
-      res.send({ error: true, codigo: 404, mensaje: "libro no encontrado" });
-    else {
-      res.send({
-        error: false,
-        codigo: 200,
-        mensaje: "libro encontado",
-        data: result,
-      });
-    }
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-const getAllBooks = async (req, res) => {
-  try {
-    let sql;
-    if (req.query.id) {
-      sql = "SELECT * from book WHERE Id_book" + req.query.id;
-    } else {
-      console.log("libros no encontrados");
-    }
-
-    console.log(sql);
-    let [result] = await pool.query(sql);
-    console.log(result);
-    if (result.length == 0)
-      res.send({ error: true, codigo: 404, mensaje: "libros no encontrados " });
-    else {
-      res.send({
-        error: false,
-        codigo: 200,
-        mensaje: "libros encontado",
-        data: result,
-      });
-    }
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-const postBook = async (req, res) => {
-  try {
-    console.log(req.body);
-    let sql =
-      "INSERT INTO book ( id_user , title , type, author, price , photo)" +
-      "values ('" +
-      req.body.id_user +
-      "','" +
-      req.body.title +
-      "','" +
-      req.body.type +
-      " ',' " +
-      req.body.author +
-      " ',' " +
-      req.body.price +
-      " ',' " +
-      req.body.photo +
-      "')";
-
-    console.log(sql);
-    let [result] = await pool.query(sql);
-    console.log(result);
-
-    if (result.insertId) res.send(String(result.insertId));
-    else res.send("-1");
-  } catch (err) {
-    console.log(err);
-  }
-};
-
-const putBook = async (req, res) => {
-  try {
-    let sql;
-    console.log(req.body);
-    let parametros = [
-      req.body.title,
-      req.body.author,
-      req.body.type,
-      req.body.price,
-      req.body.photo,
-      req.body.id_book,
-      req.body.id_user,
-    ];
-
-    sql =
-      "UPDATE book SET title = COALESCE (?, title) , " +
-      "author = COALESCE (?,author) , " +
-      "type = COALESCE (?,type) , " +
-      "price = COALESCE (?,price) , " +
-      "photo = COALESCE (?,photo)  WHERE id_book = ? AND id_user= ? ";
-
-    console.log(sql);
-    let [result] = await pool.query(sql, parametros);
-    res.send(result);
-  } catch (err) {
-    console.log(err);
-  }
-};
-
-const deleteBook = async (req, res) => {
-  try {
-    console.log(req.body);
-
-    let params = [req.body.id];
-    let sql = "DELETE FROM book WHERE id_book = ?";
-    console.log(sql);
-    let [result] = await pool.query(sql, params);
-    res.send(result);
-  } catch (err) {
-    console.log(err);
+    return res.status(500).json({ message: error.message });
   }
 };
 
 module.exports = {
-  registerUser,
-  login,
-  getBook,
-  getAllBooks,
-  postBook,
-  putBook,
-  deleteBook,
+  createUser,
+  getUsers,
+  getUser,
+  updateUser,
+  deleteUser,
+  loginUser,
 };
